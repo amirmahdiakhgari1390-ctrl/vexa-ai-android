@@ -41,10 +41,25 @@ class VexaCoreClient(
         }
     }
 
-    private val chatModels = listOf(
-        "google/gemma-3-27b-it:free",
+    enum class IntelligenceLevel(val id: String, val labelFa: String, val labelEn: String) {
+        DEEP_THINK("deep", "هوش عمیق (Deep Think)", "Deep Think"),
+        FAST("fast", "پاسخ سریع (Fast)", "Fast")
+    }
+
+    private val deepModels = listOf(
+        "deepseek/deepseek-r1:free",
+        "deepseek/deepseek-chat-v3-0324:free",
         "qwen/qwen3-235b-a22b:free",
         "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemma-3-27b-it:free",
+        "openrouter/free",
+        "openai"
+    )
+
+    private val fastModels = listOf(
+        "google/gemma-3-27b-it:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "deepseek/deepseek-chat-v3-0324:free",
         "openrouter/free",
         "openai"
     )
@@ -56,22 +71,22 @@ class VexaCoreClient(
         ASSISTANT(
             "Vexa Global AI",
             "وِکسا هوشمند",
-            "You are Vexa AI — a world-class, intelligent, multilingual assistant like ChatGPT. Understand user intent deeply, detect the user's exact language, and respond clearly and accurately in that exact language."
+            "You are Vexa AI — a high-IQ, structured, accurate multilingual assistant. Analyze carefully, verify facts, structure answers clearly, and respond fluently in the exact language of the user's message."
         ),
         TRADER(
             "Market Analyst",
             "تحلیلگر بازار",
-            "You are Vexa AI in Market Analyst mode. Provide clear structure, key levels, risk management, and concise technical insight."
+            "You are Vexa AI in Market Analyst mode. Provide structured market analysis, scenarios, key levels, risk management, and clear caveats without financial guarantees."
         ),
         CODER(
             "Software Engineer",
             "مهندس نرم‌افزار",
-            "You are Vexa AI in Software Engineer mode. Write clean, production-grade code and clear explanations."
+            "You are Vexa AI in Software Engineer mode. Write clean, bug-free, production-ready code with clear architectural explanations and edge-case handling."
         ),
         TUTOR(
             "Language Tutor",
             "مترجم و مدرس زبان",
-            "You are Vexa AI in Language Tutor mode. Translate and explain accurately while keeping natural phrasing."
+            "You are Vexa AI in Language Tutor mode. Translate and explain accurately with natural phrasing and helpful examples."
         )
     }
 
@@ -93,6 +108,14 @@ class VexaCoreClient(
 
     fun setPersona(p: Persona) = prefs.edit().putString("persona", p.name).apply()
 
+    fun getIntelligenceLevel(): IntelligenceLevel {
+        val saved = prefs.getString("iq_level", IntelligenceLevel.DEEP_THINK.id)
+        return IntelligenceLevel.values().firstOrNull { it.id == saved } ?: IntelligenceLevel.DEEP_THINK
+    }
+
+    fun setIntelligenceLevel(level: IntelligenceLevel) =
+        prefs.edit().putString("iq_level", level.id).apply()
+
     @Synchronized
     fun clear() = history.clear()
 
@@ -105,19 +128,15 @@ class VexaCoreClient(
         }
     }
 
-    /**
-     * Deep ChatGPT-style prompt enhancer: understands Persian/any-language request and turns it
-     * into a rich, vivid, detailed English visual prompt so the image generator renders exact intent.
-     */
     private fun craftRichVisualPrompt(rawUserRequest: String, isLogo: Boolean): String {
         val sys = if (isLogo) {
-            "You are an expert brand designer. Convert the user's logo idea into a concise, ultra-clean English prompt for an AI image generator (minimalist vector logo, clean geometry, centered, solid background, high contrast). Output ONLY the English prompt."
+            "Convert the logo idea into a concise, clean English visual prompt for an AI image generator (minimalist vector icon, centered, solid background, high contrast). Output ONLY the English prompt."
         } else {
-            "You are an expert AI art director like DALL-E 3. Expand and translate the user's image request into a vivid, detailed, photorealistic English prompt describing subject, composition, lighting, colors, atmosphere, and camera style. Output ONLY the English prompt."
+            "Expand and translate the user's image request into a vivid, detailed, photorealistic English prompt describing subject, composition, lighting, colors, atmosphere, and camera style. Output ONLY the English prompt."
         }
         for (m in listOf("google/gemma-3-27b-it:free", "meta-llama/llama-3.3-70b-instruct:free", "openai")) {
             try {
-                val res = callGateway(m, rawUserRequest, null, sys, includeHistory = false)
+                val res = callGateway(m, rawUserRequest, null, sys, includeHistory = false, temperature = 0.5)
                     .replace("\"", "")
                     .replace("\n", " ")
                     .trim()
@@ -151,12 +170,10 @@ class VexaCoreClient(
             }
             AiResult(caption, generatedImage = bmp)
         } else {
-            val errMsg = if (isFa) {
-                "در حال حاضر موتور تصویرساز پاسخ نداد. لطفاً اتصال اینترنت را بررسی کنید و دوباره امتحان کنید."
-            } else {
-                "Image generator did not respond right now. Please check your connection and try again."
-            }
-            AiResult(errMsg)
+            AiResult(
+                if (isFa) "در حال حاضر موتور تصویرساز پاسخ نداد. لطفاً اتصال اینترنت را بررسی کنید و دوباره امتحان کنید."
+                else "Image generator did not respond right now. Please check your connection and try again."
+            )
         }
     }
 
@@ -235,9 +252,6 @@ class VexaCoreClient(
         return null
     }
 
-    /**
-     * Live web search via Cloudflare Worker (/search?q=...)
-     */
     fun searchWebLive(query: String): String {
         val base = getGatewayUrl().trimEnd('/')
         val enc = URLEncoder.encode(query, "UTF-8")
@@ -258,7 +272,7 @@ class VexaCoreClient(
                 val snippet = item.optString("snippet", "").trim()
                 val link = item.optString("link", "").trim()
                 if (title.isNotEmpty()) {
-                    sb.append("${i + 1}. $title\n")
+                    sb.append("${i + 1}.$title\n")
                     if (snippet.isNotEmpty()) sb.append("   $snippet\n")
                     if (link.isNotEmpty()) sb.append("   Source: $link\n")
                 }
@@ -281,9 +295,9 @@ class VexaCoreClient(
     @Synchronized
     fun generateRawFileContent(ext: String, topic: String): String? {
         val sys = "Output ONLY clean, complete raw content for a .$ext file about the request. No markdown fences (```)."
-        for (m in chatModels) {
+        for (m in deepModels) {
             try {
-                val res = callGateway(m, "Format: .$ext\nTopic: $topic", null, sys, includeHistory = false)
+                val res = callGateway(m, "Format: .$ext\nTopic: $topic", null, sys, includeHistory = false, temperature = 0.3)
                     .replace(Regex("^```[a-zA-Z]*\\n?"), "")
                     .replace(Regex("\\n?```$"), "")
                     .trim()
@@ -304,15 +318,23 @@ class VexaCoreClient(
         memory.autoLearnFromUserMessage(text)
         val isFa = isPersianText(text)
         val activePersona = forcePersona ?: getPersona()
+        val iq = getIntelligenceLevel()
+        val candidateModels = if (iq == IntelligenceLevel.DEEP_THINK) deepModels else fastModels
+        val temp = if (iq == IntelligenceLevel.DEEP_THINK) 0.35 else 0.55
 
         val doSearch = (image == null) && (forceWebSearch || shouldAutoSearchWeb(text))
         val webContext = if (doSearch) searchWebLive(text) else ""
 
         val sysPrompt = buildString {
             append(activePersona.instruction)
+            if (iq == IntelligenceLevel.DEEP_THINK) {
+                append("\nThink step-by-step and verify logic carefully before writing the final answer. Present a clear, well-structured, comprehensive response.")
+            } else {
+                append("\nGive a direct, clear, and concise answer.")
+            }
             if (userDisplayName.isNotBlank()) append("\nUser: $userDisplayName.")
             if (isFa) {
-                append("\nReply clearly, thoroughly, and naturally in Persian.")
+                append("\nReply clearly, accurately, and naturally in Persian.")
             } else {
                 append("\nDetect the user's language and reply fluently in that exact same language.")
             }
@@ -325,9 +347,9 @@ class VexaCoreClient(
         }
 
         var lastErr = ""
-        for (m in chatModels) {
+        for (m in candidateModels) {
             try {
-                val raw = callGateway(m, text, image, sysPrompt, includeHistory = true)
+                val raw = callGateway(m, text, image, sysPrompt, includeHistory = true, temperature = temp)
                     .replace(Regex("<think>[\\s\\S]*?</think>"), "")
                     .trim()
                 if (raw.isNotEmpty()) {
@@ -363,7 +385,8 @@ class VexaCoreClient(
         text: String,
         image: Bitmap?,
         systemInstruction: String,
-        includeHistory: Boolean
+        includeHistory: Boolean,
+        temperature: Double = 0.4
     ): String {
         val messages = JSONArray()
         messages.put(JSONObject().put("role", "system").put("content", systemInstruction))
@@ -386,14 +409,17 @@ class VexaCoreClient(
 
         for (ep in endpoints) {
             val effModel = if (ep.contains("pollinations.ai")) "openai" else model
-            val body = JSONObject().put("model", effModel).put("messages", messages)
+            val body = JSONObject()
+                .put("model", effModel)
+                .put("temperature", temperature)
+                .put("messages", messages)
             for (attempt in 1..2) {
                 var conn: HttpURLConnection? = null
                 try {
                     conn = URL(ep).openConnection() as HttpURLConnection
                     conn.requestMethod = "POST"
                     conn.connectTimeout = 15000
-                    conn.readTimeout = 45000
+                    conn.readTimeout = 60000
                     conn.doOutput = true
                     conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     conn.setRequestProperty("Connection", "close")
