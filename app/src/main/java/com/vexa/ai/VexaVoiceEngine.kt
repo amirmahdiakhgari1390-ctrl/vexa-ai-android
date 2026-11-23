@@ -34,10 +34,18 @@ class VexaVoiceEngine(
                 ttsReady = true
                 tts?.setSpeechRate(1.02f)
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) = handler.post { onStateChange(true) }
-                    override fun onDone(utteranceId: String?) = handler.post { onStateChange(false) }
+                    override fun onStart(utteranceId: String?) {
+                        handler.post { onStateChange(true) }
+                    }
+
+                    override fun onDone(utteranceId: String?) {
+                        handler.post { onStateChange(false) }
+                    }
+
                     @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) = handler.post { onStateChange(false) }
+                    override fun onError(utteranceId: String?) {
+                        handler.post { onStateChange(false) }
+                    }
                 })
             }
         }
@@ -128,7 +136,10 @@ class VexaVoiceEngine(
                 if (sb.isNotEmpty()) sb.append(" ")
                 sb.append(p)
             } else {
-                if (sb.isNotEmpty()) { out.add(sb.toString()); sb = StringBuilder() }
+                if (sb.isNotEmpty()) {
+                    out.add(sb.toString())
+                    sb = StringBuilder()
+                }
                 if (p.length <= maxLen) sb.append(p) else out.add(p.take(maxLen))
             }
         }
@@ -164,7 +175,10 @@ class VexaVoiceEngine(
         val lock = Object()
         var done = false
         handler.post {
-            if (cancelled) { synchronized(lock) { done = true; lock.notifyAll() }; return@post }
+            if (cancelled) {
+                synchronized(lock) { done = true; lock.notifyAll() }
+                return@post
+            }
             try {
                 stopMediaPlayerOnly()
                 mediaPlayer = MediaPlayer().apply {
@@ -175,8 +189,15 @@ class VexaVoiceEngine(
                             .build()
                     )
                     setDataSource(file.absolutePath)
-                    setOnCompletionListener { file.delete(); synchronized(lock) { done = true; lock.notifyAll() } }
-                    setOnErrorListener { _, _, _ -> file.delete(); synchronized(lock) { done = true; lock.notifyAll() }; true }
+                    setOnCompletionListener {
+                        file.delete()
+                        synchronized(lock) { done = true; lock.notifyAll() }
+                    }
+                    setOnErrorListener { _, _, _ ->
+                        file.delete()
+                        synchronized(lock) { done = true; lock.notifyAll() }
+                        true
+                    }
                     prepare()
                     start()
                 }
@@ -193,7 +214,10 @@ class VexaVoiceEngine(
     }
 
     private fun stopMediaPlayerOnly() {
-        try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (_: Exception) { }
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+        } catch (_: Exception) { }
         mediaPlayer = null
     }
 
