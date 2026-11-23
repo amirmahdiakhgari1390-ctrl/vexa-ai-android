@@ -64,6 +64,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var drawerSessionsContainer: LinearLayout
     private lateinit var statusBanner: TextView
     private lateinit var personaChip: TextView
+    private lateinit var iqToggleBtn: TextView
     private lateinit var langToggleBtn: TextView
     private lateinit var emptyHeroBox: LinearLayout
     private lateinit var chatRecycler: RecyclerView
@@ -386,6 +387,33 @@ class MainActivity : AppCompatActivity() {
         centerModelBox.addView(logoIcon)
         centerModelBox.addView(personaChip)
 
+        iqToggleBtn = TextView(this).apply {
+            val isDeep = vexaCore.getIntelligenceLevel() == VexaCoreClient.IntelligenceLevel.DEEP_THINK
+            text = if (isDeep) "🧠 Deep" else "⚡ Fast"
+            textSize = 10.5f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor(currentTheme.accent))
+            background = roundedBg(currentTheme.bgCard, 10, currentTheme.border, 1)
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(6)
+            }
+            setOnClickListener {
+                val next = if (vexaCore.getIntelligenceLevel() == VexaCoreClient.IntelligenceLevel.DEEP_THINK) {
+                    VexaCoreClient.IntelligenceLevel.FAST
+                } else {
+                    VexaCoreClient.IntelligenceLevel.DEEP_THINK
+                }
+                vexaCore.setIntelligenceLevel(next)
+                text = if (next == VexaCoreClient.IntelligenceLevel.DEEP_THINK) "🧠 Deep" else "⚡ Fast"
+                Toast.makeText(
+                    this@MainActivity,
+                    if (next == VexaCoreClient.IntelligenceLevel.DEEP_THINK) "حالت هوش عمیق فعال شد" else "حالت پاسخ سریع فعال شد",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         langToggleBtn = TextView(this).apply {
             text = langObj.shortLabel
             textSize = 11f
@@ -413,6 +441,7 @@ class MainActivity : AppCompatActivity() {
 
         topBar.addView(menuBtn)
         topBar.addView(centerModelBox)
+        topBar.addView(iqToggleBtn)
         topBar.addView(langToggleBtn)
         topBar.addView(newChatTopBtn)
         topBar.addView(settingsBtn)
